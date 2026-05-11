@@ -210,6 +210,25 @@ Hi! Here's my proposed solution for {{specificRequest}}.
 {{timeline}}
 ```
 
+### Mermaid Diagram Rendering
+
+The Mermaid code needs to be converted to an image before inserting into Google Docs. Options:
+
+1. **Mermaid.ink API (Recommended):** Free service that renders Mermaid code to PNG via URL
+   - URL format: `https://mermaid.ink/img/{base64_encoded_mermaid_code}`
+   - Insert as image URL in Google Docs
+
+2. **Alternative:** Include Mermaid code as text block with a link to https://mermaid.live for client to visualize
+
+The workflow will use option 1 (Mermaid.ink) for automatic image generation.
+
+### LLM API Format
+
+LM Studio exposes an **OpenAI-compatible API** at `http://host.docker.internal:1234/v1/chat/completions`. The n8n workflow will use HTTP Request nodes with:
+- Method: POST
+- Headers: `Content-Type: application/json`
+- Body format matching OpenAI Chat Completions API
+
 ## Proposal Strategy
 
 Based on Nick Saraev's proven template approach:
