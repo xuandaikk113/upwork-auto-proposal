@@ -144,6 +144,14 @@ Parse Webhook Payload (extract jobs array from v3 payload)
 | `proposal_draft` | Text | Cover letter text |
 | `status` | Dropdown | new / reviewing / applied / skipped / won |
 
+### Row Formatting
+
+| Condition | Format |
+|-----------|--------|
+| `score >= 7` | Light green background (row highlight) |
+
+This highlighting is applied automatically when appending rows to help visually identify high-potential jobs at a glance.
+
 ### Input Files
 
 ```

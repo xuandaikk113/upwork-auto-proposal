@@ -234,6 +234,8 @@ The schedule is configured in n8n UI (Schedule Trigger node). Default: every hou
 | `proposal_draft` | Cover letter text |
 | `status` | Tracking status (dropdown) |
 
+> **Row Highlighting:** Jobs with `score >= 7` are automatically highlighted with a light green background for quick identification.
+
 ## Troubleshooting
 
 ### LM Studio not accessible from Docker

@@ -23,3 +23,6 @@ Thumbs.db
 # Temp files
 *.tmp
 *.temp
+
+# Data
+data/swift-delight-436903-j3-c63b38134a03.json

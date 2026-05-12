@@ -1,0 +1,907 @@
+{
+  "name": "Upwork Auto-Proposal Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Upwork Auto-Proposal Automation\n\nReceives jobs from Upwork Job Scraper Chrome extension, scores them with LLM, generates proposals with Mermaid diagrams, and outputs to Google Sheets.\n\n**Setup:**\n1. Configure Google Sheets/Docs/Drive credentials\n2. Configure Telegram credentials\n3. Copy webhook URL to Chrome extension\n4. Activate workflow",
+        "height": 280,
+        "width": 420
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-400, -300],
+      "id": "note-1",
+      "name": "Project Note"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upwork-jobs",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 200],
+      "id": "webhook-1",
+      "name": "Webhook - Receive Jobs",
+      "webhookId": "upwork-jobs-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "var-1",
+              "name": "status",
+              "value": "={{ $json.body.status }}",
+              "type": "string"
+            },
+            {
+              "id": "var-2",
+              "name": "targetName",
+              "value": "={{ $json.body.targetName }}",
+              "type": "string"
+            },
+            {
+              "id": "var-3",
+              "name": "jobs",
+              "value": "={{ $json.body.jobs }}",
+              "type": "array"
+            },
+            {
+              "id": "var-4",
+              "name": "timestamp",
+              "value": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 200],
+      "id": "set-vars-1",
+      "name": "Extract Webhook Data"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "success",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cond-1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Success"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "success",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    },
+                    "id": "cond-2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Error"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [440, 200],
+      "id": "switch-1",
+      "name": "Check Status"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "jobs",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [660, 100],
+      "id": "split-1",
+      "name": "Split Out Jobs"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "job-1",
+              "name": "job_id",
+              "value": "={{ $json.uid }}",
+              "type": "string"
+            },
+            {
+              "id": "job-2",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "job-3",
+              "name": "url",
+              "value": "={{ $json.url }}",
+              "type": "string"
+            },
+            {
+              "id": "job-4",
+              "name": "description",
+              "value": "={{ $json.description }}",
+              "type": "string"
+            },
+            {
+              "id": "job-5",
+              "name": "budget",
+              "value": "={{ $json.budget || 'Not specified' }}",
+              "type": "string"
+            },
+            {
+              "id": "job-6",
+              "name": "job_type",
+              "value": "={{ $json.jobType }}",
+              "type": "string"
+            },
+            {
+              "id": "job-7",
+              "name": "experience_level",
+              "value": "={{ $json.experienceLevel }}",
+              "type": "string"
+            },
+            {
+              "id": "job-8",
+              "name": "skills",
+              "value": "={{ Array.isArray($json.skills) ? $json.skills.join(', ') : $json.skills }}",
+              "type": "string"
+            },
+            {
+              "id": "job-9",
+              "name": "payment_verified",
+              "value": "={{ $json.paymentVerified }}",
+              "type": "boolean"
+            },
+            {
+              "id": "job-10",
+              "name": "client_rating",
+              "value": "={{ $json.clientRating }}",
+              "type": "string"
+            },
+            {
+              "id": "job-11",
+              "name": "client_total_spent",
+              "value": "={{ $json.clientTotalSpent }}",
+              "type": "string"
+            },
+            {
+              "id": "job-12",
+              "name": "proposals",
+              "value": "={{ $json.proposals }}",
+              "type": "string"
+            },
+            {
+              "id": "job-13",
+              "name": "posted_date",
+              "value": "={{ $json.datePosted }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [880, 100],
+      "id": "set-job-1",
+      "name": "Extract Job Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.payment_verified }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "pay-1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Verified"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.payment_verified }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "notEquals"
+                    },
+                    "id": "pay-2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Not Verified"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [1100, 100],
+      "id": "switch-payment",
+      "name": "Payment Verified?"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "job_id",
+              "lookupValue": "={{ $json.job_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1320, 0],
+      "id": "sheets-lookup",
+      "name": "Check Duplicate",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "object",
+                      "operation": "empty"
+                    },
+                    "id": "dup-1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "New Job"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "object",
+                      "operation": "notEmpty"
+                    },
+                    "id": "dup-2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Duplicate"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [1540, 0],
+      "id": "switch-dup",
+      "name": "Is Duplicate?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_HOST }}/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.LLM_MODEL }}\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a job scoring assistant. Score this Upwork job based on how well it matches the candidate's resume and portfolio. Output ONLY valid JSON.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"## Job Details\\nTitle: {{ $('Extract Job Fields').item.json.title }}\\nDescription: {{ $('Extract Job Fields').item.json.description }}\\nBudget: {{ $('Extract Job Fields').item.json.budget }}\\nSkills: {{ $('Extract Job Fields').item.json.skills }}\\nExperience Level: {{ $('Extract Job Fields').item.json.experience_level }}\\n\\n## Resume\\n(AI Engineer with 4+ years experience in LLM, Computer Vision, Python, Django, FastAPI, vLLM, PyTorch)\\n\\n## Instructions\\nScore this job 1-10 based on fit. Output JSON with: score (integer 1-10), match_reasons (array of strings), red_flags (array of strings), suggested_rate (string), estimated_effort (string), questions_for_client (array of strings).\"\n    }\n  ],\n  \"temperature\": 0.3,\n  \"max_tokens\": 1000\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1760, -100],
+      "id": "llm-score",
+      "name": "LLM - Score Job"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "score-1",
+              "name": "llm_response",
+              "value": "={{ $json.choices[0].message.content }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1980, -100],
+      "id": "parse-score",
+      "name": "Parse Score Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the LLM response and extract scoring data\nconst llmResponse = $input.first().json.llm_response;\nconst jobData = $('Extract Job Fields').first().json;\n\nlet scoreData;\ntry {\n  // Try to parse JSON from the response\n  const jsonMatch = llmResponse.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    scoreData = JSON.parse(jsonMatch[0]);\n  } else {\n    scoreData = JSON.parse(llmResponse);\n  }\n} catch (e) {\n  // Default values if parsing fails\n  scoreData = {\n    score: 5,\n    match_reasons: ['Unable to parse LLM response'],\n    red_flags: [],\n    suggested_rate: 'N/A',\n    estimated_effort: 'N/A',\n    questions_for_client: []\n  };\n}\n\nreturn {\n  json: {\n    ...jobData,\n    score: scoreData.score || 5,\n    match_reasons: Array.isArray(scoreData.match_reasons) ? scoreData.match_reasons.join('; ') : scoreData.match_reasons,\n    red_flags: Array.isArray(scoreData.red_flags) ? scoreData.red_flags.join('; ') : scoreData.red_flags,\n    suggested_rate: scoreData.suggested_rate || 'N/A',\n    estimated_effort: scoreData.estimated_effort || 'N/A',\n    questions_for_client: Array.isArray(scoreData.questions_for_client) ? scoreData.questions_for_client.join('; ') : scoreData.questions_for_client\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, -100],
+      "id": "code-parse",
+      "name": "Merge Job + Score"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_HOST }}/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.LLM_MODEL }}\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a solution architect. Generate a Mermaid.js flowchart diagram showing the proposed solution architecture. Output ONLY the Mermaid code starting with 'graph' or 'flowchart', no markdown fences.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Create a solution architecture diagram for this project:\\n\\nTitle: {{ $json.title }}\\nDescription: {{ $json.description }}\\nSkills needed: {{ $json.skills }}\"\n    }\n  ],\n  \"temperature\": 0.5,\n  \"max_tokens\": 800\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2420, -100],
+      "id": "llm-mermaid",
+      "name": "LLM - Generate Mermaid"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract Mermaid code and create image URL\nconst response = $input.first().json;\nconst jobData = $('Merge Job + Score').first().json;\n\nlet mermaidCode = response.choices[0].message.content;\n\n// Clean up the mermaid code\nmermaidCode = mermaidCode.replace(/```mermaid\\n?/g, '').replace(/```\\n?/g, '').trim();\n\n// Ensure it starts with graph or flowchart\nif (!mermaidCode.startsWith('graph') && !mermaidCode.startsWith('flowchart')) {\n  mermaidCode = 'graph TD\\n  A[Client] --> B[Solution]\\n  B --> C[Delivery]';\n}\n\n// Create mermaid.ink URL\nconst base64Code = Buffer.from(mermaidCode).toString('base64');\nconst mermaidImageUrl = `https://mermaid.ink/img/${base64Code}`;\n\nreturn {\n  json: {\n    ...jobData,\n    mermaid_code: mermaidCode,\n    mermaid_image_url: mermaidImageUrl\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, -100],
+      "id": "code-mermaid",
+      "name": "Create Mermaid Image URL"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_HOST }}/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $env.LLM_MODEL }}\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You write Upwork proposals. Be casual, confident, and concise. No flowery language or emojis. Under 150 words. Always include $$$ as a placeholder (exactly three dollar signs) where the portfolio link will go.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Write a cover letter for this job:\\n\\nTitle: {{ $json.title }}\\nDescription: {{ $json.description }}\\n\\nAbout me: AI Engineer with 4+ years experience. Expert in LLM, RAG, Computer Vision, Python, vLLM, PyTorch. Built enterprise AI search systems, industrial CV monitoring, real-time analytics.\\n\\nUse this template style:\\nHi, I do [relevant thing] all the time.\\nSo confident I'm the right fit that I created a solution diagram + proposal: $$$\\n\\n[Brief relevant background]\\n[Specific value you bring]\\n\\nHappy to discuss—just respond to this proposal.\\nThank you!\"\n    }\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 500\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2860, -100],
+      "id": "llm-proposal",
+      "name": "LLM - Generate Proposal"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract proposal and prepare final data\nconst response = $input.first().json;\nconst jobData = $('Create Mermaid Image URL').first().json;\n\nlet proposal = response.choices[0].message.content;\n\n// For now, replace $$$ with mermaid image URL (later will be Google Doc URL)\nconst proposalWithLink = proposal.replace('$$$', jobData.mermaid_image_url);\n\nreturn {\n  json: {\n    ...jobData,\n    proposal_draft: proposal,\n    proposal_with_link: proposalWithLink\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3080, -100],
+      "id": "code-proposal",
+      "name": "Finalize Proposal"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_id": "={{ $json.job_id }}",
+            "timestamp": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+            "title": "={{ $json.title }}",
+            "url": "={{ $json.url }}",
+            "budget": "={{ $json.budget }}",
+            "posted_date": "={{ $json.posted_date }}",
+            "proposals_submitted": "={{ $json.proposals }}",
+            "client_payment_verified": "={{ $json.payment_verified }}",
+            "client_rating": "={{ $json.client_rating }}",
+            "client_total_spent": "={{ $json.client_total_spent }}",
+            "required_skills": "={{ $json.skills }}",
+            "score": "={{ $json.score }}",
+            "match_reasons": "={{ $json.match_reasons }}",
+            "red_flags": "={{ $json.red_flags }}",
+            "suggested_rate": "={{ $json.suggested_rate }}",
+            "estimated_effort": "={{ $json.estimated_effort }}",
+            "questions_for_client": "={{ $json.questions_for_client }}",
+            "proposal_draft": "={{ $json.proposal_draft }}",
+            "mermaid_diagram": "={{ $json.mermaid_image_url }}",
+            "status": "new"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {"id": "job_id", "displayName": "job_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "timestamp", "displayName": "timestamp", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "title", "displayName": "title", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "url", "displayName": "url", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "budget", "displayName": "budget", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "posted_date", "displayName": "posted_date", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "proposals_submitted", "displayName": "proposals_submitted", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "client_payment_verified", "displayName": "client_payment_verified", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "client_rating", "displayName": "client_rating", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "client_total_spent", "displayName": "client_total_spent", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "required_skills", "displayName": "required_skills", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "score", "displayName": "score", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "match_reasons", "displayName": "match_reasons", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "red_flags", "displayName": "red_flags", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "suggested_rate", "displayName": "suggested_rate", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "estimated_effort", "displayName": "estimated_effort", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "questions_for_client", "displayName": "questions_for_client", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "proposal_draft", "displayName": "proposal_draft", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "mermaid_diagram", "displayName": "mermaid_diagram", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [3300, -100],
+      "id": "sheets-append",
+      "name": "Append to Google Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Finalize Proposal').item.json.score }}",
+                    "rightValue": "={{ Number($env.NOTIFY_THRESHOLD) || 9 }}",
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    },
+                    "id": "notify-1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "High Score"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Finalize Proposal').item.json.score }}",
+                    "rightValue": "={{ Number($env.NOTIFY_THRESHOLD) || 9 }}",
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    },
+                    "id": "notify-2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Normal"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [3520, -100],
+      "id": "switch-notify",
+      "name": "Check Score Threshold"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "=🎯 *High-Scoring Job Found!*\n\n*Title:* {{ $('Finalize Proposal').item.json.title }}\n*Score:* {{ $('Finalize Proposal').item.json.score }}/10\n*Budget:* {{ $('Finalize Proposal').item.json.budget }}\n\n*Match Reasons:*\n{{ $('Finalize Proposal').item.json.match_reasons }}\n\n[View Job]({{ $('Finalize Proposal').item.json.url }})",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [3740, -200],
+      "id": "telegram-notify",
+      "name": "Send Telegram Alert",
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Skip Paths\n\nJobs are skipped if:\n- Payment not verified\n- Already exists in sheet (duplicate)",
+        "height": 140,
+        "width": 280
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1100, 220],
+      "id": "note-skip",
+      "name": "Skip Note"
+    },
+    {
+      "parameters": {
+        "content": "## Error Handling\n\nIf scraper status is not 'success', the workflow stops here.\nCheck Activity Logs in the Chrome extension.",
+        "height": 140,
+        "width": 320
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [440, 320],
+      "id": "note-error",
+      "name": "Error Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Receive Jobs": {
+      "main": [
+        [
+          {
+            "node": "Extract Webhook Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Webhook Data": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [
+          {
+            "node": "Split Out Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Split Out Jobs": {
+      "main": [
+        [
+          {
+            "node": "Extract Job Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Job Fields": {
+      "main": [
+        [
+          {
+            "node": "Payment Verified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payment Verified?": {
+      "main": [
+        [
+          {
+            "node": "Check Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Check Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Is Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "LLM - Score Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "LLM - Score Job": {
+      "main": [
+        [
+          {
+            "node": "Parse Score Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Score Response": {
+      "main": [
+        [
+          {
+            "node": "Merge Job + Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Job + Score": {
+      "main": [
+        [
+          {
+            "node": "LLM - Generate Mermaid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Generate Mermaid": {
+      "main": [
+        [
+          {
+            "node": "Create Mermaid Image URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Mermaid Image URL": {
+      "main": [
+        [
+          {
+            "node": "LLM - Generate Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Generate Proposal": {
+      "main": [
+        [
+          {
+            "node": "Finalize Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Proposal": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "Check Score Threshold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Score Threshold": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "instanceId": "upwork-auto-proposal"
+  },
+  "id": "upwork-automation-1",
+  "tags": []
+}
