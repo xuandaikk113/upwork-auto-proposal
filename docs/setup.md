@@ -4,8 +4,11 @@
 
 1. **Docker Desktop** - Install from https://docker.com
 2. **LM Studio** - Install from https://lmstudio.ai
-3. **Google Cloud Project** - For Sheets and Docs API access
-4. **Telegram Bot** - Create via @BotFather
+3. **Chrome or Edge** with [Upwork Job Scraper](https://chromewebstore.google.com/detail/upwork-job-scraper/mojpfejnpifdgjjknalhghclnaifnjkg) extension
+4. **Google Cloud Project** - For Sheets and Docs API access
+5. **Telegram Bot** - Create via @BotFather
+
+> **Note:** Upwork discontinued RSS feeds in August 2024. We use the free, open-source Upwork Job Scraper Chrome extension instead.
 
 ## Step 1: Clone and Configure
 
@@ -33,13 +36,16 @@ cp .env.example .env
    - Share with service account email (Editor access)
    - Copy Sheet ID from URL
 
-## Step 3: Set Up Upwork RSS Feed
+## Step 3: Set Up Upwork Job Scraper Chrome Extension
 
-1. Go to Upwork > Find Work
-2. Set your search filters (skills, budget, etc.)
-3. Save the search
-4. Click RSS icon to get feed URL
-5. Add URL to `.env`
+1. Install [Upwork Job Scraper](https://chromewebstore.google.com/detail/upwork-job-scraper/mojpfejnpifdgjjknalhghclnaifnjkg) from Chrome Web Store (works on Edge too)
+2. Log in to Upwork in your browser
+3. Go to Find Work and set your search filters (skills, budget, etc.)
+4. Save the search and copy the URL from your browser
+5. Open the extension settings (click extension icon > Options)
+6. Paste your saved search URL
+7. Set scrape interval (recommended: 15-30 minutes)
+8. The webhook URL will be configured after n8n setup (Step 8)
 
 ## Step 4: Set Up Telegram Bot
 
@@ -100,7 +106,7 @@ docker compose up -d
 open http://localhost:5678
 ```
 
-## Step 8: Import Workflow
+## Step 8: Import Workflow & Configure Webhook
 
 1. Open n8n UI
 2. Go to Workflows > Import
@@ -110,9 +116,13 @@ open http://localhost:5678
    - Google Docs
    - Google Drive
    - Telegram
-5. Update environment variable references
-6. Set your schedule in the Schedule Trigger node
-7. Activate the workflow
+5. Click on the **Webhook** node and copy the webhook URL
+   - Example: `http://localhost:5678/webhook/upwork-jobs`
+6. Go back to the Chrome extension settings
+7. Paste the webhook URL in the "Webhook URL" field
+8. Select **v3** payload mode
+9. Activate the workflow in n8n
+10. Test by clicking "Run scrape now" in the extension
 
 ## Step 9: Fill In Your Data
 
@@ -134,6 +144,13 @@ Edit these files with your information:
 - Ensure APIs are enabled in Google Cloud Console
 
 ### No jobs appearing
-- Check RSS feed URL is valid
-- Verify payment_verified filter isn't too strict
-- Check n8n execution logs for errors
+- Verify your browser (Chrome/Edge) is open with the extension running
+- Check webhook URL is correctly configured in extension
+- Click "Run scrape now" in extension to test manually
+- Check n8n execution logs for incoming webhook requests
+- Verify your Upwork saved search URL returns results
+
+### Chrome Extension Issues
+- **Captcha Required**: Complete captcha manually in browser
+- **Logged Out**: Re-login to Upwork in your browser
+- **Auto-paused**: After 4 consecutive scrapes, the extension pauses to avoid rate limiting - this is normal behavior

@@ -6,7 +6,9 @@
 
 ## Overview
 
-An n8n automation workflow that monitors Upwork job postings via RSS, scores them using a local LLM (LM Studio), generates personalized proposals with solution architecture diagrams, and outputs everything to Google Sheets for manual review and submission.
+An n8n automation workflow that receives Upwork job postings via webhook (from the Upwork Job Scraper Chrome extension), scores them using a local LLM (LM Studio), generates personalized proposals with solution architecture diagrams, and outputs everything to Google Sheets for manual review and submission.
+
+> **Note:** Upwork discontinued native RSS feeds on August 20, 2024. This project uses the free, open-source [Upwork Job Scraper](https://github.com/richardadonnell/Upwork-Job-Scraper) Chrome extension which scrapes job listings and sends them to a webhook.
 
 ## Goals
 
@@ -21,37 +23,46 @@ An n8n automation workflow that monitors Upwork job postings via RSS, scores the
 ### System Components
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Docker Host                              │
-│  ┌─────────────┐                                                │
-│  │    n8n      │◄──── Schedule Trigger (hourly)                 │
-│  │  Container  │                                                │
-│  └──────┬──────┘                                                │
-│         │                                                        │
-│         ▼                                                        │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐       │
-│  │ RSS Feed    │────►│ LM Studio   │────►│Google Sheets│       │
-│  │ (Upwork)    │     │ (Host)      │     │ API         │       │
-│  └─────────────┘     └─────────────┘     └─────────────┘       │
-│                             │                                    │
-│                             ▼                                    │
-│                      ┌─────────────┐     ┌─────────────┐       │
-│                      │Google Docs  │     │ Telegram    │       │
-│                      │ API         │     │ Bot API     │       │
-│                      └─────────────┘     └─────────────┘       │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                              Host Machine                             │
+│                                                                       │
+│  ┌─────────────────┐                                                 │
+│  │ Browser         │                                                 │
+│  │ (Chrome/Edge)   │──── Scheduled scraping (configurable)          │
+│  │ + Job Scraper   │                                                 │
+│  └────────┬────────┘                                                 │
+│           │ HTTP POST (webhook)                                       │
+│           ▼                                                           │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │                      Docker Container                        │    │
+│  │  ┌─────────────┐                                            │    │
+│  │  │    n8n      │◄──── Webhook Trigger (receives job data)   │    │
+│  │  │             │                                            │    │
+│  │  └──────┬──────┘                                            │    │
+│  │         │                                                    │    │
+│  └─────────┼────────────────────────────────────────────────────┘    │
+│            │                                                          │
+│            ▼                                                          │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐            │
+│  │ LM Studio   │────►│Google Sheets│     │Google Docs  │            │
+│  │ (Host:1234) │     │ API         │     │ API         │            │
+│  └─────────────┘     └─────────────┘     └─────────────┘            │
+│                                                 │                     │
+│                                                 ▼                     │
+│                                          ┌─────────────┐            │
+│                                          │ Telegram    │            │
+│                                          │ Bot API     │            │
+│                                          └─────────────┘            │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Workflow Flow
 
 ```
-Schedule Trigger (configurable, default hourly)
+Webhook Trigger (receives POST from Chrome extension)
     │
     ▼
-RSS Feed Read (Upwork saved search)
-    │
-    ▼
-Parse Job Items (extract: id, title, description, budget, URL, etc.)
+Parse Webhook Payload (extract jobs array from v3 payload)
     │
     ▼
 ┌─────────────────────────────────────────┐
@@ -156,8 +167,8 @@ prompts/
 ### Environment Variables
 
 ```env
-# Upwork RSS Feed
-UPWORK_RSS_URL=https://www.upwork.com/ab/feed/jobs/rss?...
+# n8n Webhook (generated by n8n, configure in Chrome extension)
+# N8N_WEBHOOK_URL=http://localhost:5678/webhook/upwork-jobs
 
 # Google Sheets
 GOOGLE_SHEET_ID=your-sheet-id-here
@@ -275,6 +286,54 @@ volumes:
   n8n_data:
 ```
 
+## Browser Extension Setup
+
+### Upwork Job Scraper
+
+Install the [Upwork Job Scraper](https://chromewebstore.google.com/detail/upwork-job-scraper/mojpfejnpifdgjjknalhghclnaifnjkg) extension (free, open-source). Works on Chrome, Edge, or any Chromium-based browser.
+
+**Configuration:**
+1. Set your Upwork saved search URL in the extension
+2. Configure scrape schedule (recommended: every 15-30 minutes)
+3. Set webhook URL to your n8n webhook endpoint
+4. Select payload mode: **v3** (default, recommended for n8n)
+
+### Webhook Payload Format (v3)
+
+```json
+{
+  "status": "success",
+  "targetName": "AI Engineer Jobs",
+  "jobs": [
+    {
+      "uid": "~01abc123...",
+      "title": "AI Engineer for LLM Project",
+      "url": "https://www.upwork.com/jobs/~01abc123...",
+      "datePosted": "2026-05-12T10:30:00Z",
+      "postedAtMs": 1747044600000,
+      "description": "Looking for an AI engineer...",
+      "jobType": "Fixed price",
+      "budget": "$500",
+      "experienceLevel": "Expert",
+      "skills": ["Python", "LLM", "PyTorch"],
+      "paymentVerified": true,
+      "clientRating": 4.8,
+      "clientTotalSpent": "$50,000+",
+      "proposals": "10 to 15"
+    }
+  ],
+  "timestamp": "2026-05-12T10:35:00Z"
+}
+```
+
+**Status values:**
+- `success` - Jobs found and included
+- `captcha_required` - Manual intervention needed
+- `logged_out` - Re-login to Upwork required
+- `error` - General error occurred
+
+> **Note:** `status: 'no_results'` is NOT sent to webhook (only browser notification).
+
 ## Filtering Rules
 
 Jobs are **skipped** if:
@@ -309,4 +368,14 @@ Telegram message sent when `score >= NOTIFY_THRESHOLD` containing:
 ## References
 
 - [Nick Saraev's n8n Upwork Automation](https://n8n.io/workflows/6174-automate-personalized-upwork-proposals-with-gpt-4-google-docs-and-mermaid-diagrams/)
+- [Upwork Job Scraper - GitHub](https://github.com/richardadonnell/Upwork-Job-Scraper)
+- [Upwork Job Scraper - Chrome Web Store](https://chromewebstore.google.com/detail/upwork-job-scraper/mojpfejnpifdgjjknalhghclnaifnjkg)
 - Sample workflow: `sample-n8n-flow.json`
+
+## Appendix: Why Not RSS?
+
+Upwork officially discontinued RSS feeds on **August 20, 2024**. The Upwork Job Scraper Chrome extension is the recommended free alternative that provides:
+- Webhook integration for automation workflows
+- Rich job data including client verification status
+- Configurable scrape schedules
+- Open-source (GPL-3.0) with active maintenance

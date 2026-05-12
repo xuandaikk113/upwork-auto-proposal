@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:n8n.io)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "WebFetch(domain:chromewebstore.google.com)",
+      "WebSearch",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
